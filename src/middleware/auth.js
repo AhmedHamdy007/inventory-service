@@ -62,7 +62,11 @@ function requireAuth(req, res, next) {
       });
     }
 
-    req.user = user;
+    req.user = {
+      ...user,
+      id: user.id || req.auth.sub,
+      role: req.auth.role || null,
+    };
     return next();
   })().catch(() =>
     res.status(503).json({
@@ -73,6 +77,36 @@ function requireAuth(req, res, next) {
   );
 }
 
+function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+        request_id: req.id,
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      req.logger?.warn?.("Forbidden inventory request blocked by role middleware", {
+        request_id: req.id,
+        user_id: req.user.id,
+        role: req.user.role,
+        allowed_roles: roles,
+        path: req.originalUrl,
+      });
+      return res.status(403).json({
+        success: false,
+        error: "Access denied: insufficient role",
+        request_id: req.id,
+      });
+    }
+
+    return next();
+  };
+}
+
 module.exports = {
   requireAuth,
+  requireRole,
 };

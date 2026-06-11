@@ -1,6 +1,6 @@
 const express = require("express");
 const { healthCheck } = require("../db/pool");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requireRole } = require("../middleware/auth");
 const { ValidationError } = require("../middleware/errorHandler");
 const { resolveInventoryScope } = require("../services/shopClient");
 const {
@@ -170,7 +170,7 @@ router.get("/ready", async (req, res) => {
   }
 });
 
-router.get("/inventory/me", requireAuth, attachScope, async (req, res) => {
+router.get("/inventory/me", requireAuth, requireRole("owner", "stylist"), attachScope, async (req, res) => {
   const items = await listItemsByScope(req.inventoryScope.scopeType, req.inventoryScope.scopeId);
   return res.json({
     success: true,
@@ -179,7 +179,7 @@ router.get("/inventory/me", requireAuth, attachScope, async (req, res) => {
   });
 });
 
-router.post("/inventory/items", requireAuth, requireManageScope, async (req, res) => {
+router.post("/inventory/items", requireAuth, requireRole("owner", "stylist"), requireManageScope, async (req, res) => {
   const created = await createItem({
     scopeType: req.inventoryScope.scopeType,
     scopeId: req.inventoryScope.scopeId,
@@ -199,7 +199,7 @@ router.post("/inventory/items", requireAuth, requireManageScope, async (req, res
   });
 });
 
-router.patch("/inventory/items/:itemId", requireAuth, requireManageScope, async (req, res) => {
+router.patch("/inventory/items/:itemId", requireAuth, requireRole("owner", "stylist"), requireManageScope, async (req, res) => {
   const item = await findItemById(req.params.itemId);
   ensureItemBelongsToScope(item, req.inventoryScope, req);
 
@@ -234,7 +234,7 @@ router.patch("/inventory/items/:itemId", requireAuth, requireManageScope, async 
   });
 });
 
-router.delete("/inventory/items/:itemId", requireAuth, requireManageScope, async (req, res) => {
+router.delete("/inventory/items/:itemId", requireAuth, requireRole("owner", "stylist"), requireManageScope, async (req, res) => {
   const item = await findItemById(req.params.itemId);
   ensureItemBelongsToScope(item, req.inventoryScope, req);
   const deleted = await deleteItem(item.id);
@@ -245,7 +245,7 @@ router.delete("/inventory/items/:itemId", requireAuth, requireManageScope, async
   });
 });
 
-router.post("/inventory/items/:itemId/adjust", requireAuth, requireManageScope, async (req, res) => {
+router.post("/inventory/items/:itemId/adjust", requireAuth, requireRole("owner", "stylist"), requireManageScope, async (req, res) => {
   const item = await findItemById(req.params.itemId);
   ensureItemBelongsToScope(item, req.inventoryScope, req);
 

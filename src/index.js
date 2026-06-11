@@ -12,6 +12,7 @@ const requestContext = require("./middleware/requestContext");
 const inventoryRoutes = require("./routes/inventory.routes");
 const { errorHandler } = require("./middleware/errorHandler");
 const { initSubscriptions } = require("./events/subscriptions");
+const { pool } = require("./db/pool");
 
 const logger = new Logger("inventory-service", config.logLevel);
 const app = express();
@@ -53,9 +54,31 @@ const server = app.listen(config.port, async () => {
   }
 });
 
+let shuttingDown = false;
+
 function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
   logger.info("Shutdown signal received", { signal });
-  server.close(() => process.exit(0));
+  const forceExitTimer = setTimeout(() => {
+    logger.error("Forcing shutdown after timeout", { signal });
+    process.exit(1);
+  }, 10000);
+  forceExitTimer.unref?.();
+
+  server.close(async () => {
+    try {
+      await pool.end();
+      logger.info("Database pool closed");
+      clearTimeout(forceExitTimer);
+      process.exit(0);
+    } catch (error) {
+      logger.error("Error during shutdown", { error: error.message });
+      clearTimeout(forceExitTimer);
+      process.exit(1);
+    }
+  });
 }
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
